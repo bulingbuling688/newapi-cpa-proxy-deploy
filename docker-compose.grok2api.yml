@@ -1,0 +1,23 @@
+services:
+  grok2api:
+    build:
+      context: ./grok2api
+      dockerfile: Dockerfile
+    image: grok2api:local
+    container_name: proxy-grok2api
+    restart: unless-stopped
+    ports:
+      - "${GROK2API_HOST_PORT:-127.0.0.1:8001}:8000"
+    volumes:
+      - ./grok2api/data:/app/data
+      - ./grok2api/logs:/app/logs
+    environment:
+      STORAGE_MODE: ${GROK2API_STORAGE_MODE:-file}
+      WORKERS: ${GROK2API_WORKERS:-1}
+      LOG_LEVEL: ${GROK2API_LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

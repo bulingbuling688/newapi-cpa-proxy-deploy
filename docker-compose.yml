@@ -1,0 +1,100 @@
+services:
+  new-api:
+    image: calciumion/new-api:latest
+    container_name: proxy-new-api
+    restart: always
+    command: --log-dir /app/logs
+    ports:
+      - "${NEWAPI_HOST_PORT:-127.0.0.1:3000}:3000"
+    volumes:
+      - ./newapi/data:/data
+      - ./newapi/logs:/app/logs
+    environment:
+      SQL_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_CONN_STRING: redis://redis
+      TZ: ${TZ:-Asia/Shanghai}
+      ERROR_LOG_ENABLED: "true"
+      BATCH_UPDATE_ENABLED: "true"
+      SESSION_SECRET: ${NEWAPI_SESSION_SECRET}
+      CRYPTO_SECRET: ${NEWAPI_CRYPTO_SECRET}
+      MEMORY_CACHE_ENABLED: "true"
+      STREAMING_TIMEOUT: "300"
+      RELAY_TIMEOUT: "300"
+    depends_on:
+      - redis
+      - postgres
+      - cpa
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/status >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:latest
+    container_name: proxy-redis
+    restart: always
+
+  postgres:
+    image: postgres:15
+    container_name: proxy-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  cpa:
+    image: eceasy/cli-proxy-api:latest
+    container_name: proxy-cpa
+    ports:
+      - "${CPA_HOST_PORT:-127.0.0.1:8317}:8317"
+    volumes:
+      - ./cpa/config.yaml:/CLIProxyAPI/config.yaml:ro
+      - ./cpa/auths:/opt/proxy/cpa/auths
+      - ./cpa/logs:/CLIProxyAPI/logs
+    restart: always
+
+  cpa-usage-keeper:
+    build: ./cpa-usage-keeper
+    container_name: proxy-cpa-usage-keeper
+    restart: always
+    ports:
+      - "${USAGE_KEEPER_HOST_PORT:-127.0.0.1:8320}:8320"
+    volumes:
+      - ./cpa/auths:/opt/proxy/cpa/auths
+      - ./cpa/auths_standby:/opt/proxy/cpa/auths_standby
+      - ./cpa/auths_cooling:/opt/proxy/cpa/auths_cooling
+      - ./cpa/auths_disabled:/opt/proxy/cpa/auths_disabled
+      - ./cpa/single_mode_state.json:/opt/proxy/cpa/single_mode_state.json
+      - ./cpa/pool_state.json:/opt/proxy/cpa/pool_state.json
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      DB_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      CPA_BASE_URL: http://cpa:8317
+      CPA_MANAGEMENT_KEY: ${CPA_MANAGEMENT_KEY}
+      USAGE_API_KEY: ${USAGE_API_KEY}
+      CPA_AUTH_DIR: /opt/proxy/cpa/auths
+      CPA_STANDBY_AUTH_DIR: /opt/proxy/cpa/auths_standby
+      CPA_COOLING_AUTH_DIR: /opt/proxy/cpa/auths_cooling
+      CPA_DISABLED_AUTH_DIR: /opt/proxy/cpa/auths_disabled
+      CPA_POOL_STATE_FILE: /opt/proxy/cpa/pool_state.json
+      CPA_CONTAINER_NAME: proxy-cpa
+      SINGLE_ACCOUNT_MODE: "false"
+      SINGLE_ACCOUNT_SWITCH_INTERVAL_SECONDS: "15"
+      POOL_TIERED_MODE: "false"
+      POOL_PRIMARY_PLANS: team,plus
+      POOL_QUOTA_RETRY_SECONDS: "18000"
+      POLL_INTERVAL_SECONDS: "5"
+      POLL_BATCH_SIZE: "100"
+      TZ: ${TZ:-Asia/Shanghai}
+    depends_on:
+      - postgres
+      - cpa
+
+volumes:
+  pg_data:

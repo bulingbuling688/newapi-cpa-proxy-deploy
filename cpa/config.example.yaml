@@ -1,0 +1,31 @@
+api-keys:
+  - sk-change-me-cpa-api-key
+auth-auto-refresh-workers: 16
+auth-dir: /opt/proxy/cpa/auths
+debug: false
+disable-cooling: false
+host: ""
+logging-to-file: true
+logs-max-total-size-mb: 100
+max-retry-credentials: 10
+max-retry-interval: 30
+port: 8317
+proxy-url: ""
+quota-exceeded:
+  antigravity-credits: true
+  switch-preview-model: true
+  switch-project: true
+remote-management:
+  allow-remote: true
+  disable-control-panel: false
+  # CLIProxyAPI expects the same format as its native config.
+  # Generate this with the upstream management password workflow.
+  secret-key: change-me-bcrypt-hash
+request-retry: 3
+routing:
+  session-affinity: false
+  strategy: round-robin
+tls:
+  enable: false
+usage-statistics-enabled: true
+ws-auth: false
